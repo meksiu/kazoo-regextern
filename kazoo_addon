@@ -1,0 +1,83 @@
+#!/bin/sh -e
+### BEGIN INIT INFO
+# Provides:          kazoo
+# Required-Start:
+# Required-Stop:     $local_fs
+# Should-Start:      apache2
+# Should-Stop:       apache2
+# Default-Start:
+# Default-Stop:      0 6
+# Short-Description: deamon connect to pbx.
+### END INIT INFO
+
+PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin"
+
+[ -x /sbin/ifup ] || exit 0
+
+. /lib/lsb/init-functions
+
+# helper function to set the usplash timeout. https://launchpad.net/bugs/21617
+usplash_timeout () {
+	TIMEOUT=$1
+	if [ -x /sbin/usplash_write ]; then
+	    /sbin/usplash_write "TIMEOUT $TIMEOUT" || true
+	fi
+}
+
+starts()
+{
+    cd /opt/kazoo_addons/
+    if [ -f ./kazoo-sync.php ]; then
+        if ! ps -A|grep -q "kazoo-sync" ; then
+            ./kazoo-sync.php >>/var/log/kazoo-sync.log &
+        fi
+    fi
+    if [ -f ./kazoo-syncenter.php ]; then
+        if ! ps -A|grep -q "kazoo-syncenter" ; then
+            ./kazoo-syncenter.php >>/var/log/kazoo-syncenter.log &
+        fi
+    fi
+}
+
+stops(){
+    cd /opt/kazoo_addons/
+    if [ -f ./kazoo-sync.php ]; then
+        if ps -A|grep -q "kazoo-sync" ; then
+            killall kazoo-sync.php
+        fi
+    fi
+    if [ -f ./kazoo-syncenter.php ]; then
+        if ps -A|grep -q "kazoo-syncenter" ; then
+            killall kazoo-syncenter.php
+        fi
+    fi
+}
+
+#set -x
+case "$1" in
+start)
+	starts
+	;;
+
+stop)
+	stops
+	;;
+
+status)
+	ps -A|grep kazoo-sync.php
+	ps -A|grep kazoo-syncenter.php
+	;;
+
+force-reload|restart)
+	stops
+	sleep 2;
+	starts
+	;;
+
+*)
+	echo "Usage: /etc/init.d/kazoo_addon {start|stop|status|restart}"
+	exit 1
+	;;
+esac
+
+exit 0
