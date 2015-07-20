@@ -26,7 +26,7 @@ usplash_timeout () {
 
 starts()
 {
-    cd /opt/kazoo_addons/
+    cd /opt/kazoo-regextern/
     if [ -f ./kazoo-sync.php ]; then
         if ! ps -A|grep -q "kazoo-sync" ; then
             ./kazoo-sync.php >>/var/log/kazoo-sync.log &
@@ -40,7 +40,7 @@ starts()
 }
 
 stops(){
-    cd /opt/kazoo_addons/
+    cd /opt/kazoo-regextern/
     if [ -f ./kazoo-sync.php ]; then
         if ps -A|grep -q "kazoo-sync" ; then
             killall kazoo-sync.php

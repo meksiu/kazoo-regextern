@@ -1,15 +1,12 @@
 #!/usr/bin/php
 <?php
 
-$stop = false;$reload = false;$first = false;$checkit = false;$host = false;$testsleep = 30;
 sleep(2); // only for admin check
 //firewall();
 
 require_once('phplib/Sag.php');
 require_once('functions.php');
-$hosts = 'localhost1 localhost2 localhost';  // settings this to your couchdb nodes if one fail, take next!!
-$nreload = 0;
-$ncheck = 0;
+require_once('config.php');
 
 // check while
 while($stop == false) {
