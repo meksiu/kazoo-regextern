@@ -64,7 +64,6 @@ function get_entry($db, $view) {
 }
 
 // res object
-
 function put_changed($value) {
 
     global $sag;
@@ -112,21 +111,48 @@ function remove_xml($value) {
     $ret = put_changed($value);
     if($ret['err']) do_log("Remove:".substr($value->id,1)." Error:".$ret['err']);
     else do_log("Remove:".$value->id ." Success:".$ret['res'],'v', __FILE__ ,__FUNCTION__, __LINE__);
+    @$gateways_status = unserialize(file_get_contents('/tmp/gateways_cache'));
+    unset($gateways_status[$value->id]);
+    file_put_contents('/tmp/gateways_cache',serialize($gateways_status));
 }
 
 function check_gateways() {
 
-    $ret = false;
+    $ret = false;$flag_save = false;
     exec('fs_cli -x "sofia xmlstatus gateways"', $ret);
     $xml = simplexml_load_string(implode($ret));
     $json = json_encode($xml);
     $gateways = json_decode($json,TRUE);
+    @$gateways_status = unserialize(file_get_contents('/tmp/gateways_cache'));
     foreach($gateways['gateway'] AS $key => $gateway) {
-        if($gateway['status'] == 'DOWN') {do_log("Gateway:".$gateway['name']." Proxy:".$gateway['proxy']." State:".$gateway['state']." Status:".$gateway['status'],'', __FILE__ ,__FUNCTION__, __LINE__);
-            exec('sofia profile sipinterface_1 killgw '.$gateway['name'], $ret); sleep(1); exec('sofia profile sipinterface_1 rescan xmlreload', $ret);}
-        else do_log("Gateway:".$gateway['name']." Proxy:".$gateway['proxy']." State:".$gateway['state']." Status:".$gateway['status'],'v', __FILE__ ,__FUNCTION__, __LINE__);
+        if($gateway['status'] != $gateways_status[$gateway['exten']]['reged_status']) {$gateways_status[$gateway['exten']]['reged_state'] = $gateway['state'];
+            $gateways_status[$gateway['exten']]['reged_status'] = $gateway['status']; gateway_status_changed($gateway);$flag_save = true;}
+        if($gateway['status'] == 'DOWN') {do_log("Exten:".$gateway['exten']." Proxy:".$gateway['proxy']." State:".$gateway['state']." Status:".$gateway['status'],'', __FILE__ ,__FUNCTION__, __LINE__);
+            exec('sofia profile sipinterface_1 killgw '.$gateway['name'], $ret); sleep(1); exec('sofia profile sipinterface_1 rescan xmlreload', $ret);
+        }
+        else do_log("Exten:".$gateway['exten']." Proxy:".$gateway['proxy']." State:".$gateway['state']." Status:".$gateway['status'],'v', __FILE__ ,__FUNCTION__, __LINE__);
     }
+    if($flag_save) file_put_contents('/tmp/gateways_cache',serialize($gateways_status));
 }
+
+function gateway_status_changed($gateway) {
+
+    global $sag;
+    $ret['err'] = false;
+    $ret = get_entry('numbers/'.substr($gateway['exten'],0,5) , urlencode($gateway['exten']));
+    if($ret['err']) {do_log("Gateway status change Exten:".$gateway['exten'] ." Error:".$ret['err']); return(false);} else $res = $ret['res'];
+    $res->regextern->reged_status = $gateway['status'];
+    $res->regextern->reged_state = $gateway['state'];
+    $res->views++;
+    try {
+            $sag->setDatabase($res->pvt_db_name);
+            $ret['res'] = $sag->put(urlencode($res->_id), $res)->body->ok;
+        }
+        catch(Exception $e) {
+              $ret['err'] = $e->getMessage()."DB:$db";
+        }
+}
+
 
 function check_couchdb($testhost) {
 
