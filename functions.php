@@ -12,10 +12,10 @@ function do_log($msg, $debug=false, $file=false,  $func=false, $line=false) {
 
     global $dbconfig;
 
-        if($dbconfig == false) {echo date('r').' NO_CONFIGDB!! '.$file.":".$line." ".$func." ".$msg."\n"; return(false);}
-        if(    $dbconfig->default->extern_numbermanager_logging == 'debug'   && ($debug == 'd' || $debug == 'v'  || $debug == '')) echo date('r').' '.$file.":".$line." ".$func." ".$msg."\n";
-        elseif($dbconfig->default->extern_numbermanager_logging == 'verbose' && ($debug == 'v' || $debug == '')) echo date('r').' '.$msg."\n";
-        elseif($dbconfig->default->extern_numbermanager_logging == 'minimal' && $debug == '')  echo date('r').' '.$msg."\n";
+        if($dbconfig['phone_numbers'] == false) {echo date('r').' NO_CONFIGDB!! '.$file.":".$line." ".$func." ".$msg."\n"; return(false);}
+        if(    $dbconfig['phone_numbers']->default->extern_numbermanager_logging == 'debug'   && ($debug == 'd' || $debug == 'v'  || $debug == '')) echo date('r').' '.$file.":".$line." ".$func." ".$msg."\n";
+        elseif($dbconfig['phone_numbers']->default->extern_numbermanager_logging == 'verbose' && ($debug == 'v' || $debug == '')) echo date('r').' '.$msg."\n";
+        elseif($dbconfig['phone_numbers']->default->extern_numbermanager_logging == 'minimal' && $debug == '')  echo date('r').' '.$msg."\n";
 }
 
 function get_ip($type)
@@ -26,11 +26,12 @@ function get_ip($type)
 
 function db_config() {
 
-    $config = get_entry('system_config','crossbar.devices');
-    if($config['err']) do_log("Get config Error:".$config['err']);
-    else do_log("Get config Success:".$config['res']->_id,'v', __FILE__ ,__FUNCTION__, __LINE__);
+    $cfg_p = get_entry('system_config','crossbar.phone_numbers'); $config['phone_numbers'] = $cfg_p['res'];
+    $cfg_e = get_entry('system_config','ecallmgr');               $config['ecallmgr'] = $cfg_e['res'];
+    if($cfg_p['err']) do_log("Get config Error:".$cfg_p['err']);
+    else do_log("Get phone_numbers_config Success:".$config['phone_numbers']->_id."|Get ecallmgr_config Success:".$config['phone_numbers']->_id,'v', __FILE__ ,__FUNCTION__, __LINE__);
 
-return($config['res']);
+return($config);
 }
 
 function get_all_dbs($host) {
@@ -94,7 +95,7 @@ global $dbconfig;
 <param name="extension" value="'.$value->regextern->extension.'"/>
 <param name="password" value="'.$value->regextern->password.'"/>
 <param name="register" value="true"/>
-<param name="expire-seconds" value="'.$dbconfig->default->extern_numbermanager_default_expire.'"/>
+<param name="expire-seconds" value="'.$dbconfig['phone_numbers']->default->extern_numbermanager_default_expire.'"/>
 <param name="context" value="context_2"/>
 </gateway>
 </include>
@@ -169,7 +170,9 @@ function backup($db_a, $dir, $match=false)
         /* backup only if match */
         if($match == true && $match != $db['id']) continue;
         $data = get_entry($db_a , "/".urlencode($db['id']));
-        file_put_contents($dir.urlencode($db['id']),json_encode($data['res']));
+        unset($data['res']->_rev);
+        @mkdir($dir.urlencode($db['id']), 0777, true);
+        file_put_contents($dir.urlencode($db['id']).'/'.urlencode($db['id']).'.json',json_encode($data['res']));
     }
     return("backup db->file finished\n");
 }
@@ -184,19 +187,20 @@ function restore($db_a, $dir, $type=false)
         $sag->setDatabase($db_a);
         while (false !== ($entry = readdir($handle))) {
             if(".." == $entry||"." == $entry) continue;
-            $obj = json_decode(file_get_contents($dir.$entry));
-            unset($obj->_rev);
+            $obj1 = get_entry($db_a , "/".$entry);
+            $temp_rev = $obj1['res']->_rev;
+            $obj2 = json_decode(file_get_contents($dir.$entry.'/'.$entry.'.json'));
+            if(is_object($obj1)) $obj = update_together($obj1['res'], $obj2, 'object');
+            else $obj = $obj2;
+            $obj = object2array($obj); unset($obj['err']); unset($obj['_rev']);
             try {
                 if(preg_match("/^_/",urldecode($entry))) echo $sag->put(urldecode($entry), $obj)->body->ok;
                 else echo $sag->put($entry, $obj)->body->ok;
             }
             catch(Exception $e) {
                 if($type == 'update') {
-                    $now = get_entry($db_a , "/".$entry);
-                    if($now['res']->_rev) {
-                        $obj->_rev = $now['res']->_rev;
-                        $obj->views++;
-                    }
+                    $obj['_rev'] = $temp_rev;
+                    $obj['views'] = $obj['views']+1;
                 }
                 try {
                     if(preg_match("/^_/",urldecode($entry))) echo $sag->put(urldecode($entry), $obj)->body->ok;
@@ -215,6 +219,7 @@ function get_dbhost($hosts)
 {
     global $testsleep;
 
+    $host = false;
     while($host == false) {
         foreach(explode(" ",$hosts) AS $testhost) { $host = check_couchdb($testhost); if($host) break;}
         if($host) continue;
@@ -225,7 +230,22 @@ return($host);
 
 }
 
-function merge_togetaher($object1, $object2, $typ)
+/* first object is base, object after is overlayed */
+function update_together($object1, $object2, $typ)
+{
+    switch($typ) {
+        case 'json':
+            $res = json_encode(array_replace_recursive(json_decode( $object1, true ) , json_decode( $object2, true )));
+        break;
+        case 'object':
+            $res = array_replace_recursive(object2array($object1) , object2array($object2) );
+        break;
+    }
+    return($res);
+}
+
+/* first object is base, object after is overlayed add */
+function merge_together($object1, $object2, $typ)
 {
     switch($typ) {
         case 'json':
@@ -236,6 +256,30 @@ function merge_togetaher($object1, $object2, $typ)
         break;
     }
     return($res);
+}
+
+function array2object($array) {
+
+    if (is_array($array)) {
+        $obj = new StdClass();
+        foreach ($array as $key => $val){
+            $obj->$key = $val;
+        }
+    }
+    else { $obj = $array; }
+    return $obj;
+}
+ 
+function object2array($object) {
+    if (is_object($object)) {
+        foreach ($object as $key => $value) {
+            $array[$key] = $value;
+        }
+    }
+    else {
+        $array = $object;
+    }
+    return $array;
 }
 
 ?>

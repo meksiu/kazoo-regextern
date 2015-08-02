@@ -1,0 +1,1 @@
+{"_id":"crossbar.phone_numbers","default":{"default_country":"CH","extern_numbermanager_min_check":58,"extern_numbermanager_sleep_time":60,"extern_numbermanager_default_expire":1800,"extern_numbermanager_logging":"debug"},"pvt_account_id":"system_config","pvt_account_db":"system_config","pvt_created":63599253270,"pvt_modified":63599253270,"pvt_type":"config"}

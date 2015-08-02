@@ -16,8 +16,8 @@ function input()
 return($resp);
 }
 echo "HAVE YOU set config in hosts? !!!!!\n";
-echo "system_config/crossbar.devices install file -> couchdb on $hosts (only 1)? Y/N ";$resp = input();if($resp == 'Y') restore('system_config', 'DB_INSTALL/system_config/', 'update');
-echo "system_config/crossbar.devices restore from couchdb -> file ? Y/N ";$resp = input();if($resp == 'Y') backup('system_config', 'DB_INSTALL/system_config/', 'crossbar.devices');
+echo "system_config/crossbar.phone_numbers install file -> couchdb on $hosts (only 1)? Y/N ";$resp = input();if($resp == 'Y') restore('system_config', 'DB_INSTALL/system_config/', 'update');
+echo "system_config/crossbar.phone_numbers restore from couchdb -> file ? Y/N ";$resp = input();if($resp == 'Y') backup('system_config', 'DB_INSTALL/system_config/', 'crossbar.phone_numbers');
 sleep(2);
 
 ?>
