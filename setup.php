@@ -3,6 +3,7 @@
 
 require_once('config.php');
 require_once('phplib/Sag.php');
+require_once('setup_functions.php');
 require_once('functions.php');
 
 $host = get_dbhost($hosts);
