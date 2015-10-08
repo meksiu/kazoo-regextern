@@ -98,6 +98,8 @@ else $default_rereg = $dbconfig['phone_numbers']->default->extern_numbermanager_
 <param name="password" value="'.$value->regextern->password.'"/>
 <param name="register" value="true"/>
 <param name="expire-seconds" value="'. $default_rereg .'"/>
+<param name="disable-hold" value="true"/>
+<param name="disable-transfer" value="true"/>
 <param name="context" value="context_2"/>
 </gateway>
 </include>
@@ -110,7 +112,7 @@ else $default_rereg = $dbconfig['phone_numbers']->default->extern_numbermanager_
 
 function remove_xml($value) {
 
-    unlink("/etc/kazoo/freeswitch/gateways/".substr($value->id,1).".xml");
+    @unlink("/etc/kazoo/freeswitch/gateways/".substr($value->id,1).".xml");
     $ret = put_changed($value);
     if($ret['err']) do_log("Remove:".substr($value->id,1)." Error:".$ret['err']);
     else do_log("Remove:".$value->id ." Success:".$ret['res'],'v', __FILE__ ,__FUNCTION__, __LINE__);
@@ -141,11 +143,32 @@ function check_gateways() {
 
 function change_number_accounts($regs) {
 
-    print_r($regs);
+//    print_r($regs);
+// FERTIG machen !!!!!!!!!!!!!!!!!!!!!!! alle geaenderten nummern status aktualisieren
 
-// FERTIG machen !!!!!!!!!!!!!!!!!!!!!!! alle geÃnderten nummern status aktualisieren
+    return($regs);
+}
 
-    return;
+function gateway_removed($exten) {
+
+    global $sag;
+    $ret['err'] = false;
+    $ret = get_entry('numbers/'.substr($exten,0,5) , urlencode($exten));
+    if($ret['err']) {do_log("Gateway status removed Exten:".$exten ." Error:".$ret['err']); return(false);} else $res = $ret['res'];
+    $res->regextern->reged_status = "OFF";
+    $res->regextern->reged_state = "OFF";
+    $res->views++;
+    try {
+            $sag->setDatabase($res->pvt_db_name);
+            $ret['res'] = $sag->put(urlencode($res->_id), $res)->body->ok;
+            // remove cache status in tmp
+            @$gateways_status = unserialize(file_get_contents('/tmp/gateways_cache'));
+            unset($gateways_status[$exten]);
+            file_put_contents('/tmp/gateways_cache',serialize($gateways_status));
+        }
+        catch(Exception $e) {
+              $ret['err'] = $e->getMessage()."DB:$db";
+        }
 }
 
 function gateway_status_changed($gateway) {
