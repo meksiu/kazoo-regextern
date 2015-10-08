@@ -12,3 +12,6 @@ this is for internal use only, to integration with telecom services
 
 If you have more ideas let me known on this github repository
 
+ROADMAP
+-------
+-Add multi-freeswitch support to move at failover
