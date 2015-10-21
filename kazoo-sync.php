@@ -45,11 +45,13 @@ while($stop == false) {
             }
         }
         foreach($result AS $value) {
-            try {if(@$value->regextern->pvt_changed == false) $value->regextern->pvt_changed = 0;} catch (Exception $e) {$value->regextern->pvt_changed = 0;print_r($value); sleep(3);}
-            try {if(@$value->changed == false) $value->changed = 0;} catch (Exception $e) {$value->changed = 0;print_r($value); sleep(3);}
+            try {if(@$value->regextern->pvt_changed == false) $value->regextern->pvt_changed = 0;} catch (Exception $e) {$value->regextern->pvt_changed = 0;print_r($value); sleep(1);}
+            try {if(@$value->changed == false) $value->changed = 0;} catch (Exception $e) {$value->changed = 0;print_r($value); sleep(1);}
+            try {if(@$value->modified == false) $value->modified = 0;} catch (Exception $e) {$value->modified = 0;print_r($value); sleep(1);}
+            try {if(@$value->regextern->pvt_modified == false) $value->regextern->pvt_modified = 0;} catch (Exception $e) {$value->regextern->pvt_modified = 0;print_r($value); sleep(1);}
             do_log("Extension:".$value->regextern->extension." (".$value->regextern->pvt_modified." >= ".$value->regextern->pvt_changed." && ".$value->active." == true &&  ".$value->state." == 'in_service')", 'd',__FILE__, __FUNCTION__, __LINE__);
             if($value->regextern->pvt_modified >= $value->regextern->pvt_changed && ($value->active == true) &&  ($value->state == 'in_service'||$value->state == 'reseved')) {write_xml($value); $reload=true;}
-            elseif($value->modified >= $value->changed && $value->active == false) {remove_xml($value); exec('fs_cli -x "sofia profile sipinterface_1 killgw '.substr($value->id,1).'"', $ret); $reload=true;}
+            elseif($value->modified >= $value->changed && $value->active == false) {remove_xml($value); exec('fs_cli -x "sofia profile sipinterface_1 killgw '.substr($value->id,1).'"', $ret); gateway_removed($value->id); $reload=true;}
         }
         if($reload) {exec('fs_cli -x "sofia profile sipinterface_1 rescan reloadxml"', $gat); $reload=false; do_log("Reload Gateways:".var_dump($gat), 'v',__FILE__, __FUNCTION__, __LINE__);}
         if($checkit == false) {
